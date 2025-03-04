@@ -1,5 +1,5 @@
 'use strict';
-import { DataTypes, Model } from "sequelize";
+import { DataTypes, Model, Optional } from "sequelize";
 import { sequelize } from "../database";
 
 export interface UserAttributes {
@@ -10,13 +10,18 @@ export interface UserAttributes {
   email: string;
   password: string;
   freinds: any[]; 
+  role:string
 }
+
+export type userCreationAttribute= Optional<UserAttributes, 'id'>;
 class User extends Model <UserAttributes> {
+  declare id:string;
   declare firstName: string;
   declare lastName: string;
   declare userName: string;
   declare email: string;
   declare password: string;
+  declare role:string;
   declare freinds: any[];
   static associate(models: any) {
   }
@@ -47,6 +52,10 @@ User.init({
     allowNull:false
   },
   password:{
+    type:DataTypes.STRING,
+    allowNull:false
+  },
+  role:{
     type:DataTypes.STRING,
     allowNull:false
   },

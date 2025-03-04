@@ -55,14 +55,12 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Mount routers
-app.use('/api', router);
-app.use('/api/users', userRouter);
 
-// Swagger UI
+app.use('/api', router);
+
+
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerJsdoc(swaggerOptions)));
 
-// Error handling
 app.use((req: Request, res: Response, next: NextFunction) => {
   next(createError(404));
 });

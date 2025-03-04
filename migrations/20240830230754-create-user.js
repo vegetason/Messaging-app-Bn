@@ -27,6 +27,9 @@ module.exports = {
       freinds:{
         type:Sequelize.ARRAY(Sequelize.STRING)
       },
+      role:{
+        type:Sequelize.STRING
+      },
       createdAt: {
         allowNull: false,
         type: Sequelize.DATE

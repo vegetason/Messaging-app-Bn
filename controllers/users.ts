@@ -1,27 +1,45 @@
-import User from "../models/User";
+import User, { UserAttributes, userCreationAttribute } from "../models/User";
 import { Request,Response } from "express";
 import Profile from "../models/Profile";
 import cloudinary from "../services/cloudinary";
 import Requests from "../models/Requests";
+import { comparePassword, generateJwtToken,hashPassword,verifyToken } from "../services/users";
+
 export async function userSignUp(req:Request,res:Response){
     try{
         const{
             firstName,
             lastName,
             email,
-            password,
             userName
         }=req?.body
         console.log(req.body);
+       const existingUserByEmail=await User.findOne({where:{email:req.body.email}})
+
+       if(existingUserByEmail){
+        return res.status(400).json({message:"User already exists! USe another email"})
+       }
+
+       const existingUserByUserName=await User.findOne({where:{userName:req.body.userName}})
+
+       if(existingUserByUserName){
+        return res.status(400).json({message:"Username already taken pick another one!"})
+       }
+
+       const password= await hashPassword(req.body.password);
 
        const createdUser=await User?.create({
         firstName:firstName,
         lastName:lastName,
         email:email,
         password:password,
-        userName:userName
-       }as any)
+        userName:userName,
+        role: "user" //remember to change this
+       }as UserAttributes)
+
+       const token= await generateJwtToken(createdUser,createdUser.id)
        const userProfile=await Profile.create({
+        userId:createdUser.id,
         firstName:firstName,
         lastName: lastName,
         userName: userName,
@@ -31,7 +49,7 @@ export async function userSignUp(req:Request,res:Response){
         email: email,
         SomethingAboutYourself:''
        } as any)
-        return res.status(200).json({User:createdUser,message:"Account created successfully",userProfile:userProfile})
+        return res.status(200).json({token:token,User:createdUser,message:"Account created successfully",userProfile:userProfile})
 
     }
     catch(error){
@@ -42,25 +60,29 @@ export async function userSignUp(req:Request,res:Response){
 export async function userLogin(req:Request,res:Response){
     const {userName,password}=req.body;
 
-    const user= await User.findOne({where:{userName:userName}})
+    const user:any= await User.findOne({where:{userName:userName}})
+    const isPasswordCorrect:boolean|null= await comparePassword(password,user.password)
 
+    const token=await generateJwtToken(user,user.id)
+    console.log("token:",token)
     if(!user){
         return res.status(400).json({message:"UserName not found! Sign up"})
     }
 
-    else if(user.password!==password){
+    if(!isPasswordCorrect){
         return res.status(400).json({message:"Invalid password or userName! Try again "})
     }
 
-    return res.status(200).json({message:"Login Successful"})
+    return res.status(200).json({token:token,message:"Login Successful"})
 
 }
 
 export async function deleteAccount(req:Request,res:Response) {
-    const userId=req.params.userId;
-    const deletedUser= await User.destroy({where:{id:userId}})
+    const token=req.params.token
+    const user=await verifyToken(token)as any
+    const deletedUser= await User.destroy({where:{id:user.id}})
 
-    return res.status(200).json({message:"Account deleted successfully",deletedUser:deletedUser})
+    return res.status(200).json({message:"Account deleted successfully",deletedUser:user})
 }
 
 export async function getProfile(req:Request,res:Response) {

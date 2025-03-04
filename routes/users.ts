@@ -11,7 +11,7 @@ userRouter.post('/signup',userSignUp);
 
 userRouter.post('/login',userLogin);
 
-userRouter.delete('/deleteAccount/:userId',deleteAccount);
+userRouter.delete('/deleteAccount/:token',deleteAccount);
 
 userRouter.delete('/deleteFreindRequest/:senderId/: receiverId',deleteSentRequest);
 
@@ -52,23 +52,149 @@ passport.authenticate('google',{
 
 export default userRouter
 
-
-
-
 /**
  * @swagger
- * /users:
- *   get:
- *     summary: Sign Up
- *     description: Create an Account.
- *     responses:
- *       200:
- *         description: Account created Successfully.
+ * components:
+ *   schemas:
+ *     UserSignUp:
+ *       type: object
+ *       required:
+ *         - firstName
+ *         - lastName
+ *         - email
+ *         - userName
+ *         - password
+ *       properties:
+ *         firstName:
+ *           type: string
+ *           description: User's first name
+ *         lastName:
+ *           type: string
+ *           description: User's last name
+ *         email:
+ *           type: string
+ *           format: email
+ *           description: User's email address
+ *         userName:
+ *           type: string
+ *           description: User's unique username
+ *         password:
+ *           type: string
+ *           description: User's password
+ * 
+ *     UserSignUpResponse:
+ *       type: object
+ *       properties:
+ *         User:
+ *           type: object
+ *           description: Created user details
+ *         token:
+ *           type: string
+ *           description: JWT authentication token
+ *         message:
+ *           type: string
+ *         userProfile:
+ *           type: object
+ *           description: User's profile details
+ * 
+ *     UserLogin:
+ *       type: object
+ *       required:
+ *         - userName
+ *         - password
+ *       properties:
+ *         userName:
+ *           type: string
+ *           description: User's username
+ *         password:
+ *           type: string
+ *           description: User's password
+ * 
+ *     UserLoginResponse:
+ *       type: object
+ *       properties:
+ *         token:
+ *           type: string
+ *           description: JWT authentication token
+ *         message:
+ *           type: string
+ * 
+ * paths:
+ *   /user/signup:
+ *     post:
+ *       summary: User Sign Up
+ *       tags: [Authentication]
+ *       requestBody:
+ *         required: true
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/User'
+ *               $ref: '#/components/schemas/UserSignUp'
+ *       responses:
+ *         200:
+ *           description: Account created successfully
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 $ref: '#/components/schemas/UserSignUpResponse'
+ *         500:
+ *           description: Server error
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 type: object
+ *                 properties:
+ *                   error:
+ *                     type: string
+ * 
+ *   /user/login:
+ *     post:
+ *       summary: User Login
+ *       tags: [Authentication]
+ *       requestBody:
+ *         required: true
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/UserLogin'
+ *       responses:
+ *         200:
+ *           description: Login Successful
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 $ref: '#/components/schemas/UserLoginResponse'
+ *         400:
+ *           description: Invalid credentials
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 type: object
+ *                 properties:
+ *                   message:
+ *                     type: string
+ * 
+ *   /user/deleteAccount/{token}:
+ *     delete:
+ *       summary: Delete User Account
+ *       tags: [Authentication]
+ *       parameters:
+ *         - in: path
+ *           name: token
+ *           required: true
+ *           schema:
+ *             type: string
+ *           description: JWT token for user authentication
+ *       responses:
+ *         200:
+ *           description: Account deleted successfully
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 type: object
+ *                 properties:
+ *                   message:
+ *                     type: string
+ *                   deletedUser:
+ *                     type: object
  */
-
