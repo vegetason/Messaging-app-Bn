@@ -24,14 +24,26 @@ const swaggerOptions = {
       {
         url: 'http://localhost:3000/api'
       }
-    ]
+    ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+        }
+      }
+    },
+    security: [{
+      bearerAuth: []
+    }]
   },
-  apis: ['./routes/*.ts'] // Update to use TypeScript files
+  apis: ['./routes/*.ts'] 
 };
 
 const app = express();
 
-// Middleware
+
 app.use(morgan("dev"));
 app.use(
   cors({
@@ -59,7 +71,19 @@ app.use(passport.session());
 app.use('/api', router);
 
 
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerJsdoc(swaggerOptions)));
+const swaggerUiOptions = {
+  swaggerOptions: {
+    persistAuthorization: true,
+    docExpansion: 'none',
+    filter: true,
+    displayRequestDuration: true
+  },
+  customCss: `.swagger-ui .topbar { display: flex; align-items: center; }
+              .swagger-ui .topbar .wrapper { display: flex; align-items: center; width: 100%; }
+              .swagger-ui .auth-wrapper { display: flex; align-items: center; margin-left: auto; }`
+};
+
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerJsdoc(swaggerOptions), swaggerUiOptions));
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   next(createError(404));

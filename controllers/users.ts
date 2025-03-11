@@ -1,9 +1,11 @@
 import User, { UserAttributes, userCreationAttribute } from "../models/User";
-import { Request,Response } from "express";
+import { NextFunction, Request,Response } from "express";
 import Profile from "../models/Profile";
 import cloudinary from "../services/cloudinary";
 import Requests from "../models/Requests";
-import { comparePassword, generateJwtToken,hashPassword,verifyToken } from "../services/users";
+import { comparePassword, generateJwtToken,getUserByEmail,hashPassword, sendEmail} from "../services/users";
+import { verifyEmailInfo } from "../information/userInfo";
+
 
 export async function userSignUp(req:Request,res:Response){
     try{
@@ -11,20 +13,9 @@ export async function userSignUp(req:Request,res:Response){
             firstName,
             lastName,
             email,
-            userName
+            userName,
+            phone
         }=req?.body
-        console.log(req.body);
-       const existingUserByEmail=await User.findOne({where:{email:req.body.email}})
-
-       if(existingUserByEmail){
-        return res.status(400).json({message:"User already exists! USe another email"})
-       }
-
-       const existingUserByUserName=await User.findOne({where:{userName:req.body.userName}})
-
-       if(existingUserByUserName){
-        return res.status(400).json({message:"Username already taken pick another one!"})
-       }
 
        const password= await hashPassword(req.body.password);
 
@@ -34,6 +25,8 @@ export async function userSignUp(req:Request,res:Response){
         email:email,
         password:password,
         userName:userName,
+        phone:phone,
+        verified:false,
         role: "user" //remember to change this
        }as UserAttributes)
 
@@ -49,7 +42,8 @@ export async function userSignUp(req:Request,res:Response){
         email: email,
         SomethingAboutYourself:''
        } as any)
-        return res.status(200).json({token:token,User:createdUser,message:"Account created successfully",userProfile:userProfile})
+       const sentMail=await sendEmail(verifyEmailInfo.body,verifyEmailInfo.link,verifyEmailInfo.buttonInfo,createdUser.userName,createdUser.email,verifyEmailInfo.subject)
+        return res.status(200).json({token:token,User:createdUser,message:"Account created successfully Please check your email for verification",sentMail:sentMail,userProfile:userProfile})
 
     }
     catch(error){
@@ -64,7 +58,6 @@ export async function userLogin(req:Request,res:Response){
     const isPasswordCorrect:boolean|null= await comparePassword(password,user.password)
 
     const token=await generateJwtToken(user,user.id)
-    console.log("token:",token)
     if(!user){
         return res.status(400).json({message:"UserName not found! Sign up"})
     }
@@ -78,11 +71,16 @@ export async function userLogin(req:Request,res:Response){
 }
 
 export async function deleteAccount(req:Request,res:Response) {
-    const token=req.params.token
-    const user=await verifyToken(token)as any
-    const deletedUser= await User.destroy({where:{id:user.id}})
+    const userId=(req.user as UserAttributes).id
 
-    return res.status(200).json({message:"Account deleted successfully",deletedUser:user})
+    const user= await User.findByPk(userId)
+    if(!user){
+        return res.status(404).json({ message: "User not found" });
+    }
+
+    const deletedUser= await User.destroy({where:{id:userId}})
+
+    return res.status(200).json({message:"Account deleted successfully",deletedUser:req.user})
 }
 
 export async function getProfile(req:Request,res:Response) {
@@ -197,18 +195,58 @@ export async function deleteSentRequest(req:Request,res:Response) {
 
 
 export async function LoginByGoogle(req:Request,res:Response){}
-module.exports = {
-    userSignUp,
-    userLogin,
-    LoginByGoogle,
-    deleteSentRequest,
-    getOneUser,
-    getAllUsers,
-    getRequests,
-    refusedRequest,
-    acceptRequest,
-    SendRequest,
-    updateProfile,
-    deleteAccount,
-    getProfile
-  };
+
+export async function verifyEmail(req:Request,res:Response,next:NextFunction) {
+    const userId=(req.user as UserAttributes).id;
+    const user=await User.findByPk(userId);
+
+    if(!user){
+        return res.status(400).json({
+            message:"User not found"
+        })
+    }
+
+    if(user.verified===true){
+        return res.status(400).json({message:"User is already verified!"})
+    }
+
+    user.verified=true;
+    await user.save();
+
+    return res.status(200).json({
+        message:"Email verification is successful"
+    })
+}
+
+export async function sendResetPasswordEmail(req:Request,res:Response) {
+    const email=req.body.email;
+    const user= await getUserByEmail(email);
+    if(!user){
+        return res.status(400).json({message:"Email is not registered"})
+    }
+    const userName=user.userName
+    const sentMail=await sendEmail(verifyEmailInfo.body,verifyEmailInfo.link,verifyEmailInfo.buttonInfo,userName,email,verifyEmailInfo.subject)
+
+    return res.status(200).json({message:"Reset Password Email sent successfully",sentMail:sentMail})
+    
+}
+
+export async function resetPassword(req:Request,res:Response) {
+    const userId=(req.user as UserAttributes).id;
+    const user=await User.findByPk(userId)
+    const newPassword=req.body.newPassword;
+    const confirmPassword=req.body.confirmPassword;
+
+    if(!user){
+        return res.status(400).json({message:"User not found!"})
+    }
+
+    if(newPassword!==confirmPassword){
+        return res.status(400).json({message:"Please confirm your password Well!"})
+    }
+
+    user.password=await hashPassword(newPassword)
+    await user.save();
+
+    return res.status(200).json({message:"Password reset Successfully!"})
+}

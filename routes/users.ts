@@ -1,19 +1,21 @@
 import passport from "passport";
-import { userSignUp, userLogin, deleteAccount, deleteSentRequest, getOneUser, getAllUsers, getRequests, refusedRequest, acceptRequest, SendRequest, updateProfile, getProfile } from "../controllers/users";
+import { userSignUp, userLogin, deleteAccount, deleteSentRequest, getOneUser, getAllUsers, getRequests, refusedRequest, acceptRequest, SendRequest, updateProfile, getProfile, resetPassword, verifyEmail, sendResetPasswordEmail } from "../controllers/users";
 require('../services/loginByGoogle')
+import { authenticate, getTokenFromBrowser } from "../middlewares";
+import { validateResetPassword, validatesendEmailVerification, validateUser, validateUserLogin } from "../validations/user";
 
 
 
 var express = require('express');
 let  userRouter = express.Router();
 
-userRouter.post('/signup',userSignUp);
+userRouter.post('/signup',validateUser,userSignUp);
 
-userRouter.post('/login',userLogin);
+userRouter.post('/login',validateUserLogin,userLogin);
 
-userRouter.delete('/deleteAccount/:token',deleteAccount);
+userRouter.delete('/deleteAccount',authenticate,deleteAccount);
 
-userRouter.delete('/deleteFreindRequest/:senderId/: receiverId',deleteSentRequest);
+userRouter.delete('/deleteFreindRequest/:senderId/:receiverId',deleteSentRequest);
 
 userRouter.get('/getAUser/:userId',getOneUser);
 
@@ -30,6 +32,12 @@ userRouter.post('/sendRequest/:senderId/:receiverId',SendRequest);
 userRouter.patch('/updateProfile/:userId',updateProfile);
 
 userRouter.get('/getProfile/:userId',getProfile);
+
+userRouter.post('/resetPassword',getTokenFromBrowser,validateResetPassword,resetPassword);//do swagger
+
+userRouter.post('/verifyEmail',getTokenFromBrowser,verifyEmail);//do swagger
+
+userRouter.post('/sendEmailVerification',validatesendEmailVerification,sendResetPasswordEmail)//do swagger
 
 userRouter.get('/auth/google',
   passport.authenticate('google',{scope:['email','profile']})
@@ -64,6 +72,7 @@ export default userRouter
  *         - email
  *         - userName
  *         - password
+ *         - phone
  *       properties:
  *         firstName:
  *           type: string
@@ -81,7 +90,10 @@ export default userRouter
  *         password:
  *           type: string
  *           description: User's password
- * 
+ *         phone:
+ *           type: string
+ *           description: User's phone 
+ *           example: "+250788888888"
  *     UserSignUpResponse:
  *       type: object
  *       properties:
@@ -174,17 +186,10 @@ export default userRouter
  *                   message:
  *                     type: string
  * 
- *   /user/deleteAccount/{token}:
+ *   /user/deleteAccount:
  *     delete:
  *       summary: Delete User Account
  *       tags: [Authentication]
- *       parameters:
- *         - in: path
- *           name: token
- *           required: true
- *           schema:
- *             type: string
- *           description: JWT token for user authentication
  *       responses:
  *         200:
  *           description: Account deleted successfully

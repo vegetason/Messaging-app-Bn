@@ -10,7 +10,9 @@ export interface UserAttributes {
   email: string;
   password: string;
   freinds: any[]; 
-  role:string
+  role:string;
+  verified:boolean;
+  phone:string
 }
 
 export type userCreationAttribute= Optional<UserAttributes, 'id'>;
@@ -23,6 +25,8 @@ class User extends Model <UserAttributes> {
   declare password: string;
   declare role:string;
   declare freinds: any[];
+  declare verified:boolean;
+  declare phone:string;
   static associate(models: any) {
   }
 }
@@ -61,6 +65,14 @@ User.init({
   },
   freinds:{
     type:DataTypes.ARRAY(DataTypes.STRING)
+  },
+  phone:{
+    type:DataTypes.STRING,
+    allowNull:false
+  },
+  verified:{
+    type:DataTypes.BOOLEAN,
+    defaultValue:false
   }
 }, {
   sequelize,

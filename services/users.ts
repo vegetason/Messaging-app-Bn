@@ -1,9 +1,25 @@
 import jwt from 'jsonwebtoken'
 import dotenv from "dotenv"
-import { userCreationAttribute } from '../models/User';
+import User, { userCreationAttribute } from '../models/User';
 import bcrypt from "bcrypt"
+import { NextFunction, Request } from 'express';
+import nodemailer from "nodemailer"
+import { generateEmailTemplate } from '../information/userInfo';
 
 dotenv.config();
+
+const senderEmail=process.env.EMAIL
+const senderPassword=process.env.SENDER_PASSWORD
+
+const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: false,
+    auth: {
+      user: senderEmail,
+      pass: senderPassword,
+    },
+  });
 
 export async function generateJwtToken(user:userCreationAttribute,id:string){
     const token= jwt.sign(
@@ -16,7 +32,7 @@ export async function generateJwtToken(user:userCreationAttribute,id:string){
     return token
 }
 
-export async function verifyToken(token:string){
+export  function verifyToken(token:string){
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET||"Secret");
         return decoded
@@ -35,4 +51,26 @@ export async function comparePassword(inputPassword:string,outputPassword:string
         inputPassword,     
         outputPassword     
       );
+}
+
+export async function sendEmail(body:string,link:string,buttonInfo:string,username:string,email:string,subject:string){
+    try{
+        const info = await transporter.sendMail({
+            from: '"Maddison Foo Koch 👻" <maddison53@ethereal.email>',
+            to: email, 
+            html: generateEmailTemplate(subject,body,buttonInfo,link,username), 
+          });
+          return info
+    }
+    catch(error){
+        return error
+    }
+}
+
+export async function getUserById(id:string) {
+    return await User.findByPk(id)
+}
+
+export async function getUserByEmail(email:string) {
+    return await User.findOne({where:{email:email}})
 }
