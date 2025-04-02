@@ -1,15 +1,22 @@
 import passport from "passport";
-import { userSignUp, userLogin, deleteAccount, deleteSentRequest, getOneUser, getAllUsers, getRequests, refusedRequest, acceptRequest, SendRequest, updateProfile, getProfile, resetPassword, verifyEmail, sendResetPasswordEmail } from "../controllers/users";
-require('../services/loginByGoogle')
+import { userSignUp, userLogin, deleteAccount, deleteSentRequest, getOneUser, getAllUsers, getRequests, refusedRequest, acceptRequest, SendRequest, updateProfile, getProfile, resetPassword, verifyEmail, sendResetPasswordEmail, updatePassword, googleAuthenticate, googleRedirect, LoginByGoogle, googleAuthFailed } from "../controllers/users";
 import { authenticate, getTokenFromBrowser } from "../middlewares";
-import { validateResetPassword, validatesendEmailVerification, validateUser, validateUserLogin } from "../validations/user";
+import { validateResetPassword, validatesendResetPasswordEmail, validateUpdatePassword, validateUser, validateUserLogin } from "../validations/user";
+import '../services/loginByGoogle'
+import { uploadSingleFile } from "../services/multer";
 
-
-
-var express = require('express');
+const express=require("express")
 let  userRouter = express.Router();
 
 userRouter.post('/signup',validateUser,userSignUp);
+
+userRouter.get('/auth/google',googleAuthenticate);
+
+userRouter.get('/google/callback',googleRedirect)
+
+userRouter.get('/google/token',LoginByGoogle)
+
+userRouter.get('/google/failure',googleAuthFailed)
 
 userRouter.post('/login',validateUserLogin,userLogin);
 
@@ -29,15 +36,17 @@ userRouter.patch('/acceptRequest/:senderId/:receiverId/:requestId',acceptRequest
 
 userRouter.post('/sendRequest/:senderId/:receiverId',SendRequest);
 
-userRouter.patch('/updateProfile/:userId',updateProfile);
+userRouter.patch('/updateProfile',authenticate,uploadSingleFile,updateProfile);
 
 userRouter.get('/getProfile/:userId',getProfile);
 
-userRouter.post('/resetPassword',getTokenFromBrowser,validateResetPassword,resetPassword);//do swagger
+userRouter.post('/resetPassword/:email',validateResetPassword,resetPassword);//do swagger
 
 userRouter.post('/verifyEmail',getTokenFromBrowser,verifyEmail);//do swagger
 
-userRouter.post('/sendEmailVerification',validatesendEmailVerification,sendResetPasswordEmail)//do swagger
+userRouter.post('/sendResetPasswordEmail',validatesendResetPasswordEmail,sendResetPasswordEmail)//do swagger
+
+userRouter.post('/updatePassword',authenticate,validateUpdatePassword,updatePassword)//do swagger
 
 userRouter.get('/auth/google',
   passport.authenticate('google',{scope:['email','profile']})
@@ -76,39 +85,25 @@ export default userRouter
  *       properties:
  *         firstName:
  *           type: string
- *           description: User's first name
+ *           example: John
  *         lastName:
  *           type: string
- *           description: User's last name
+ *           example: Doe
  *         email:
  *           type: string
  *           format: email
- *           description: User's email address
+ *           example: john.doe@example.com
  *         userName:
  *           type: string
- *           description: User's unique username
+ *           example: johndoe
  *         password:
  *           type: string
- *           description: User's password
+ *           format: password
+ *           example: securePassword123
  *         phone:
  *           type: string
- *           description: User's phone 
- *           example: "+250788888888"
- *     UserSignUpResponse:
- *       type: object
- *       properties:
- *         User:
- *           type: object
- *           description: Created user details
- *         token:
- *           type: string
- *           description: JWT authentication token
- *         message:
- *           type: string
- *         userProfile:
- *           type: object
- *           description: User's profile details
- * 
+ *           example: "+1234567890"
+ *     
  *     UserLogin:
  *       type: object
  *       required:
@@ -117,24 +112,181 @@ export default userRouter
  *       properties:
  *         userName:
  *           type: string
- *           description: User's username
+ *           example: johndoe
  *         password:
  *           type: string
- *           description: User's password
- * 
- *     UserLoginResponse:
+ *           example: securePassword123
+ *     
+ *     ProfileUpdate:
  *       type: object
  *       properties:
- *         token:
+ *         telephone:
  *           type: string
- *           description: JWT authentication token
- *         message:
+ *           example: "+1234567890"
+ *         address:
  *           type: string
- * 
+ *           example: "123 Main St, City, Country"
+ *         SomethingAboutYourself:
+ *           type: string
+ *           example: "I am a software developer"
+ *         image:
+ *           type: string
+ *           format: binary
+ *     
+ *     EmailVerification:
+ *       type: object
+ *       required:
+ *         - email
+ *       properties:
+ *         email:
+ *           type: string
+ *           format: email
+ *           example: john.doe@example.com
+ *     
+ *     ResetPassword:
+ *       type: object
+ *       required:
+ *         - newPassword
+ *         - confirmPassword
+ *       properties:
+ *         newPassword:
+ *           type: string
+ *           format: password
+ *           example: newSecurePassword123
+ *         confirmPassword:
+ *           type: string
+ *           format: password
+ *           example: newSecurePassword123
+ *     
+ *     UpdatePassword:
+ *       type: object
+ *       required:
+ *         - lastPassword
+ *         - updatedPassword
+ *       properties:
+ *         lastPassword:
+ *           type: string
+ *           format: password
+ *           example: oldSecurePassword123
+ *         updatedPassword:
+ *           type: string
+ *           format: password
+ *           example: newSecurePassword123
+ *     
+ *     User:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *         firstName:
+ *           type: string
+ *         lastName:
+ *           type: string
+ *         email:
+ *           type: string
+ *           format: email
+ *         userName:
+ *           type: string
+ *         phone:
+ *           type: string
+ *         verified:
+ *           type: boolean
+ *         role:
+ *           type: string
+ *           enum: [user, admin]
+ *         freinds:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/User'
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *     
+ *     Profile:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *         userId:
+ *           type: string
+ *           format: uuid
+ *         firstName:
+ *           type: string
+ *         lastName:
+ *           type: string
+ *         userName:
+ *           type: string
+ *         telephone:
+ *           type: string
+ *         image:
+ *           type: string
+ *         address:
+ *           type: string
+ *         email:
+ *           type: string
+ *           format: email
+ *         SomethingAboutYourself:
+ *           type: string
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *     
+ *     Request:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *         status:
+ *           type: string
+ *           enum: [pending, accepted, failed]
+ *         senderId:
+ *           type: string
+ *           format: uuid
+ *         receiverId:
+ *           type: string
+ *           format: uuid
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *     
+ *     Error:
+ *       type: object
+ *       properties:
+ *         error:
+ *           type: object
+ *   
+ *   securitySchemes:
+ *     bearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
+ *
+ * tags:
+ *   - name: Authentication
+ *     description: User authentication endpoints
+ *   - name: Profile
+ *     description: User profile management
+ *   - name: Friend Requests
+ *     description: Friend request management
+ *   - name: User Management
+ *     description: User management operations
+ *
  * paths:
  *   /user/signup:
  *     post:
- *       summary: User Sign Up
+ *       summary: Create a new user account
  *       tags: [Authentication]
  *       requestBody:
  *         required: true
@@ -148,20 +300,29 @@ export default userRouter
  *           content:
  *             application/json:
  *               schema:
- *                 $ref: '#/components/schemas/UserSignUpResponse'
+ *                 type: object
+ *                 properties:
+ *                   token:
+ *                     type: string
+ *                   User:
+ *                     $ref: '#/components/schemas/User'
+ *                   message:
+ *                     type: string
+ *                     example: "Account created successfully Please check your email for verification"
+ *                   userProfile:
+ *                     $ref: '#/components/schemas/Profile'
+ *                   sentMail:
+ *                     type: object
  *         500:
- *           description: Server error
+ *           description: Error creating account
  *           content:
  *             application/json:
  *               schema:
- *                 type: object
- *                 properties:
- *                   error:
- *                     type: string
- * 
+ *                 $ref: '#/components/schemas/Error'
+ *
  *   /user/login:
  *     post:
- *       summary: User Login
+ *       summary: User login
  *       tags: [Authentication]
  *       requestBody:
  *         required: true
@@ -171,13 +332,19 @@ export default userRouter
  *               $ref: '#/components/schemas/UserLogin'
  *       responses:
  *         200:
- *           description: Login Successful
+ *           description: Login successful
  *           content:
  *             application/json:
  *               schema:
- *                 $ref: '#/components/schemas/UserLoginResponse'
+ *                 type: object
+ *                 properties:
+ *                   token:
+ *                     type: string
+ *                   message:
+ *                     type: string
+ *                     example: "Login Successful"
  *         400:
- *           description: Invalid credentials
+ *           description: Login failed
  *           content:
  *             application/json:
  *               schema:
@@ -185,11 +352,20 @@ export default userRouter
  *                 properties:
  *                   message:
  *                     type: string
- * 
+ *                     example: "Invalid password or userName! Try again"
+ *         500:
+ *           description: Server error
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 $ref: '#/components/schemas/Error'
+ *
  *   /user/deleteAccount:
  *     delete:
- *       summary: Delete User Account
- *       tags: [Authentication]
+ *       summary: Delete user account
+ *       tags: [User Management]
+ *       security:
+ *         - bearerAuth: []
  *       responses:
  *         200:
  *           description: Account deleted successfully
@@ -200,6 +376,485 @@ export default userRouter
  *                 properties:
  *                   message:
  *                     type: string
+ *                     example: "Account deleted successfully"
  *                   deletedUser:
+ *                     $ref: '#/components/schemas/User'
+ *         404:
+ *           description: User not found
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 type: object
+ *                 properties:
+ *                   message:
+ *                     type: string
+ *                     example: "User not found"
+ *         500:
+ *           description: Server error
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 $ref: '#/components/schemas/Error'
+ *
+ *   /user/getProfile/{userId}:
+ *     get:
+ *       summary: Get user profile
+ *       tags: [Profile]
+ *       parameters:
+ *         - name: userId
+ *           in: path
+ *           required: true
+ *           schema:
+ *             type: string
+ *           description: ID of the user
+ *       responses:
+ *         200:
+ *           description: Profile retrieved successfully
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 type: object
+ *                 properties:
+ *                   message:
+ *                     type: string
+ *                     example: "my Profile"
+ *                   profile:
+ *                     $ref: '#/components/schemas/Profile'
+ *
+ *   /user/updateProfile:
+ *     patch:
+ *       summary: Update user profile
+ *       tags: [Profile]
+ *       security:
+ *         - bearerAuth: []
+ *       requestBody:
+ *         content:
+ *           multipart/form-data:
+ *             schema:
+ *               $ref: '#/components/schemas/ProfileUpdate'
+ *       responses:
+ *         200:
+ *           description: Profile updated successfully
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 type: object
+ *                 properties:
+ *                   message:
+ *                     type: string
+ *                     example: "Profile updated successfully"
+ *                   updatedProfile:
+ *                     $ref: '#/components/schemas/Profile'
+ *         400:
+ *           description: User not found
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 type: object
+ *                 properties:
+ *                   message:
+ *                     type: string
+ *                     example: "User not found!"
+ *         500:
+ *           description: Server error
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 $ref: '#/components/schemas/Error'
+ *
+ *   /user/sendRequest/{senderId}/{receiverId}:
+ *     post:
+ *       summary: Send friend request
+ *       tags: [Friend Requests]
+ *       parameters:
+ *         - name: senderId
+ *           in: path
+ *           required: true
+ *           schema:
+ *             type: string
+ *           description: ID of the sender
+ *         - name: receiverId
+ *           in: path
+ *           required: true
+ *           schema:
+ *             type: string
+ *           description: ID of the receiver
+ *       responses:
+ *         200:
+ *           description: Request sent successfully
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 type: object
+ *                 properties:
+ *                   message:
+ *                     type: string
+ *                     example: "Request was sent"
+ *                   sentRequest:
+ *                     $ref: '#/components/schemas/Request'
+ *         500:
+ *           description: Server error
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 $ref: '#/components/schemas/Error'
+ *
+ *   /user/acceptRequest/{senderId}/{receiverId}/{requestId}:
+ *     patch:
+ *       summary: Accept friend request
+ *       tags: [Friend Requests]
+ *       parameters:
+ *         - name: senderId
+ *           in: path
+ *           required: true
+ *           schema:
+ *             type: string
+ *           description: ID of the sender
+ *         - name: receiverId
+ *           in: path
+ *           required: true
+ *           schema:
+ *             type: string
+ *           description: ID of the receiver
+ *         - name: requestId
+ *           in: path
+ *           required: true
+ *           schema:
+ *             type: string
+ *           description: ID of the request
+ *       responses:
+ *         200:
+ *           description: Request accepted successfully
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 type: object
+ *                 properties:
+ *                   message:
+ *                     type: string
+ *                     example: "Request accepted"
+ *                   acceptedRequest:
+ *                     $ref: '#/components/schemas/Request'
+ *                   sender:
+ *                     $ref: '#/components/schemas/User'
+ *                   receiver:
+ *                     $ref: '#/components/schemas/User'
+ *         500:
+ *           description: Server error
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 $ref: '#/components/schemas/Error'
+ *
+ *   /user/denyRequest/{requestId}:
+ *     patch:
+ *       summary: Deny friend request
+ *       tags: [Friend Requests]
+ *       parameters:
+ *         - name: requestId
+ *           in: path
+ *           required: true
+ *           schema:
+ *             type: string
+ *           description: ID of the request
+ *       responses:
+ *         200:
+ *           description: Request denied successfully
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 type: object
+ *                 properties:
+ *                   message:
+ *                     type: string
+ *                     example: "Failed request"
+ *                   failedRequest:
+ *                     $ref: '#/components/schemas/Request'
+ *         500:
+ *           description: Server error
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 $ref: '#/components/schemas/Error'
+ *
+ *   /user/deleteFreindRequest/{senderId}/{receiverId}:
+ *     delete:
+ *       summary: Delete friend request
+ *       tags: [Friend Requests]
+ *       parameters:
+ *         - name: senderId
+ *           in: path
+ *           required: true
+ *           schema:
+ *             type: string
+ *           description: ID of the sender
+ *         - name: receiverId
+ *           in: path
+ *           required: true
+ *           schema:
+ *             type: string
+ *           description: ID of the receiver
+ *       responses:
+ *         204:
+ *           description: Request deleted successfully
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 type: object
+ *                 properties:
+ *                   message:
+ *                     type: string
+ *                     example: "Request deleted successfully"
+ *                   deletedRequest:
  *                     type: object
+ *         500:
+ *           description: Server error
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 $ref: '#/components/schemas/Error'
+ *
+ *   /user/getRequests/{userId}:
+ *     get:
+ *       summary: Get user requests
+ *       tags: [Friend Requests]
+ *       parameters:
+ *         - name: userId
+ *           in: path
+ *           required: true
+ *           schema:
+ *             type: string
+ *           description: ID of the user
+ *       responses:
+ *         200:
+ *           description: Requests retrieved successfully
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 type: object
+ *                 properties:
+ *                   message:
+ *                     type: string
+ *                     example: "Here are your requests"
+ *                   sentRequests:
+ *                     $ref: '#/components/schemas/Request'
+ *                   receivedRequest:
+ *                     $ref: '#/components/schemas/Request'
+ *         500:
+ *           description: Server error
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 $ref: '#/components/schemas/Error'
+ *
+ *   /user/getAllUssers:
+ *     get:
+ *       summary: Get all users
+ *       tags: [User Management]
+ *       responses:
+ *         200:
+ *           description: Users retrieved successfully
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 type: object
+ *                 properties:
+ *                   message:
+ *                     type: string
+ *                     example: "This is a list of all users"
+ *                   users:
+ *                     type: array
+ *                     items:
+ *                       $ref: '#/components/schemas/User'
+ *         500:
+ *           description: Server error
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 $ref: '#/components/schemas/Error'
+ *
+ *   /user/getAUser/{userId}:
+ *     get:
+ *       summary: Get a specific user
+ *       tags: [User Management]
+ *       parameters:
+ *         - name: userId
+ *           in: path
+ *           required: true
+ *           schema:
+ *             type: string
+ *           description: ID of the user
+ *       responses:
+ *         200:
+ *           description: User retrieved successfully
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 type: object
+ *                 properties:
+ *                   message:
+ *                     type: string
+ *                     example: "User retreived"
+ *                   user:
+ *                     $ref: '#/components/schemas/User'
+ *         500:
+ *           description: Server error
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 $ref: '#/components/schemas/Error'
+ *
+ *   /user/verifyEmail:
+ *     post:
+ *       summary: Verify user email
+ *       tags: [Authentication]
+ *       security:
+ *         - tokenInQueryParam: []
+ *       responses:
+ *         200:
+ *           description: Email verified successfully
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 type: object
+ *                 properties:
+ *                   message:
+ *                     type: string
+ *                     example: "Email verification is successful"
+ *         400:
+ *           description: Verification failed
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 type: object
+ *                 properties:
+ *                   message:
+ *                     type: string
+ *                     example: "User not found or already verified"
+ *         500:
+ *           description: Server error
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 $ref: '#/components/schemas/Error'
+ *
+ *   /user/sendResetPasswordEmail:
+ *     post:
+ *       summary: Send email verification or password reset
+ *       tags: [Authentication]
+ *       requestBody:
+ *         required: true
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/EmailVerification'
+ *       responses:
+ *         200:
+ *           description: Email sent successfully
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 type: object
+ *                 properties:
+ *                   message:
+ *                     type: string
+ *                     example: "Reset Password Email sent successfully"
+ *                   sentMail:
+ *                     type: object
+ *         400:
+ *           description: Failed to send email
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 type: object
+ *                 properties:
+ *                   message:
+ *                     type: string
+ *                     example: "Email is not registered"
+ *         500:
+ *           description: Server error
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 $ref: '#/components/schemas/Error'
+ *
+ *   /user/resetPassword:
+ *     post:
+ *       summary: Reset user password
+ *       tags: [Authentication]
+ *       security:
+ *         - tokenInQueryParam: []
+ *       requestBody:
+ *         required: true
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ResetPassword'
+ *       responses:
+ *         200:
+ *           description: Password reset successfully
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 type: object
+ *                 properties:
+ *                   message:
+ *                     type: string
+ *                     example: "Password reset Successfully!"
+ *         400:
+ *           description: Reset failed
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 type: object
+ *                 properties:
+ *                   message:
+ *                     type: string
+ *                     example: "User not found or passwords don't match"
+ *         500:
+ *           description: Server error
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 $ref: '#/components/schemas/Error'
+ *
+ *   /user/updatePassword:
+ *     post:
+ *       summary: Update user password
+ *       tags: [Authentication]
+ *       security:
+ *         - bearerAuth: []
+ *       requestBody:
+ *         required: true
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/UpdatePassword'
+ *       responses:
+ *         200:
+ *           description: Password updated successfully
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 type: object
+ *                 properties:
+ *                   message:
+ *                     type: string
+ *                     example: "Password updated Successfully"
+ *         400:
+ *           description: Update failed
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 type: object
+ *                 properties:
+ *                   message:
+ *                     type: string
+ *                     example: "Invalid password or userName! Try again"
+ *         500:
+ *           description: Server error
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 $ref: '#/components/schemas/Error'
  */

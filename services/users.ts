@@ -8,12 +8,12 @@ import { generateEmailTemplate } from '../information/userInfo';
 
 dotenv.config();
 
-const senderEmail=process.env.EMAIL
-const senderPassword=process.env.SENDER_PASSWORD
+const senderEmail=process.env.EMAIL_USER
+const senderPassword=process.env.EMAIL_PASS
 
 const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT || '587'),
+    host: 'smtp.gmail.com',
+    port: 587,
     secure: false,
     auth: {
       user: senderEmail,
@@ -56,8 +56,9 @@ export async function comparePassword(inputPassword:string,outputPassword:string
 export async function sendEmail(body:string,link:string,buttonInfo:string,username:string,email:string,subject:string){
     try{
         const info = await transporter.sendMail({
-            from: '"Maddison Foo Koch 👻" <maddison53@ethereal.email>',
+            from: senderEmail,
             to: email, 
+            subject:subject,
             html: generateEmailTemplate(subject,body,buttonInfo,link,username), 
           });
           return info

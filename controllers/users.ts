@@ -4,7 +4,9 @@ import Profile from "../models/Profile";
 import cloudinary from "../services/cloudinary";
 import Requests from "../models/Requests";
 import { comparePassword, generateJwtToken,getUserByEmail,hashPassword, sendEmail} from "../services/users";
-import { verifyEmailInfo } from "../information/userInfo";
+import { resetPasswordEmailInfo, verifyEmailInfo } from "../information/userInfo";
+import { getUser } from "../middlewares";
+import passport from "passport";
 
 
 export async function userSignUp(req:Request,res:Response){
@@ -42,9 +44,9 @@ export async function userSignUp(req:Request,res:Response){
         email: email,
         SomethingAboutYourself:''
        } as any)
+       verifyEmailInfo.link=process.env.VERIFY_EMAIL_LINK+`?token=${token}`
        const sentMail=await sendEmail(verifyEmailInfo.body,verifyEmailInfo.link,verifyEmailInfo.buttonInfo,createdUser.userName,createdUser.email,verifyEmailInfo.subject)
-        return res.status(200).json({token:token,User:createdUser,message:"Account created successfully Please check your email for verification",sentMail:sentMail,userProfile:userProfile})
-
+       return res.status(200).json({token:token,User:createdUser,message:"Account created successfully Please check your email for verification",userProfile:userProfile,sentMail:sentMail})
     }
     catch(error){
         console.log(error)
@@ -52,35 +54,48 @@ export async function userSignUp(req:Request,res:Response){
     }
 }
 export async function userLogin(req:Request,res:Response){
-    const {userName,password}=req.body;
+    try{
+        const {userName,password}=req.body;
 
-    const user:any= await User.findOne({where:{userName:userName}})
-    const isPasswordCorrect:boolean|null= await comparePassword(password,user.password)
+        const user= await User.findOne({where:{userName:userName}})
 
-    const token=await generateJwtToken(user,user.id)
-    if(!user){
-        return res.status(400).json({message:"UserName not found! Sign up"})
+        if(!user){
+            return res.status(400).json({message:"UserName not found! Sign up"})
+        }
+
+        if(user.verified!==true){
+            return res.status(400).json({message:"User is not verified!"})
+        }
+        const isPasswordCorrect:boolean|null= await comparePassword(password,user.password)
+
+        if(!isPasswordCorrect){
+            return res.status(400).json({message:"Invalid password or userName! Try again "})
+        }
+    
+        const token=await generateJwtToken(user,user.id)
+        return res.status(200).json({token:token,message:"Login Successful"})
     }
-
-    if(!isPasswordCorrect){
-        return res.status(400).json({message:"Invalid password or userName! Try again "})
+    catch(error){
+        return res.status(500).json ({error:error})
     }
-
-    return res.status(200).json({token:token,message:"Login Successful"})
-
 }
 
 export async function deleteAccount(req:Request,res:Response) {
-    const userId=(req.user as UserAttributes).id
+    try{
+        const userId=(req.user as UserAttributes).id
 
-    const user= await User.findByPk(userId)
-    if(!user){
-        return res.status(404).json({ message: "User not found" });
+        const user= await User.findByPk(userId)
+        if(!user){
+            return res.status(404).json({ message: "User not found" });
+        }
+    
+        const deletedUser= await User.destroy({where:{id:userId}})
+    
+        return res.status(200).json({message:"Account deleted successfully",deletedUser:req.user})
     }
-
-    const deletedUser= await User.destroy({where:{id:userId}})
-
-    return res.status(200).json({message:"Account deleted successfully",deletedUser:req.user})
+    catch(error){
+       return res.status(500).json ({error:error})
+    }
 }
 
 export async function getProfile(req:Request,res:Response) {
@@ -93,28 +108,35 @@ export async function getProfile(req:Request,res:Response) {
 export async function updateProfile(req:Request,res:Response) {
 
     const{telephone,address,SomethingAboutYourself}=req.body
-    const userId=req.params.userId
+    console.log(req.files)
+    const userId=(req.user as UserAttributes).id
     const myProfile=await Profile.findOne({where:{userId:userId}})
-    const files=req.params.files as any;
+    const files = req.files as Express.Multer.File[];
     let profileImage=''
+    const profile= await Profile.findOne({where:{userId:userId}})
+    
+    if(!profile){
+        return res.status(400).json({message:"User not found!"})
+    }
 
     if(files){
         await Promise.all(
             files.map(async (file:any) => {
               const result = await cloudinary.uploader.upload(file.path);
               profileImage=result.secure_url
+              console.log(profileImage)
             })
           );
     }
 
-   const updatedProfile= await myProfile?.update({
-        telephone:telephone,
-        address:address,
-        SomethingAboutYourself:SomethingAboutYourself,
-        profileImage:profileImage
-    })
 
-    return res.status(200).json({message:"Profile updated successfully",updatedProfile:updatedProfile})
+profile.telephone=telephone
+profile.SomethingAboutYourself=SomethingAboutYourself
+profile.profileImage=profileImage
+profile.address=address
+await profile.save()
+
+    return res.status(200).json({message:"Profile updated successfully",updatedProfile:profile})
 }
 
 export async function SendRequest(req:Request,res:Response) {
@@ -193,60 +215,131 @@ export async function deleteSentRequest(req:Request,res:Response) {
 }
 
 
+export async function LoginByGoogle(req:Request,res:Response){
+    try{
+        const user=req.user as UserAttributes;
+        const token=await generateJwtToken(user,user.id)
+        const redirectLink=process.env.GOOGLE_REDIRECT_LINK
+        // res.redirect(`${redirectLink}${token}`);      REPLACE IT WITH FRONTEND URL
+        res.status(200).json({message:"Google Authentication Successfull!",token:token})
+    }
+    catch(error){
+        res.status(500).json ({error:error})
+    }
+}
 
-export async function LoginByGoogle(req:Request,res:Response){}
+export function googleRedirect (req:Request,res:Response,next:NextFunction) {
+    passport.authenticate("google", {
+      successRedirect: "/api/user/google/token",
+      failureRedirect: "/api/user/google/failure",
+    })(req, res, next);
+  };
 
+export async function googleAuthenticate(req:Request,res:Response,next:NextFunction) {
+    passport.authenticate("google",{scope:["email","profile"]})(req, res, next);
+}
+
+export function googleAuthFailed (_req: Request, res: Response) {
+    res.status(400).json({ message: "Authentication failed" });
+  };
+
+export async function enhanceGoogleUserData(req:Request,res:Response) {
+    
+}
 export async function verifyEmail(req:Request,res:Response,next:NextFunction) {
-    const userId=(req.user as UserAttributes).id;
-    const user=await User.findByPk(userId);
-
-    if(!user){
-        return res.status(400).json({
-            message:"User not found"
+    try{
+        const userId=(req.user as UserAttributes).id;
+        const user=await User.findByPk(userId);
+    
+        if(!user){
+            return res.status(400).json({
+                message:"User not found"
+            })
+        }
+    
+        if(user.verified===true){
+            return res.status(400).json({message:"User is already verified!"})
+        }
+    
+        user.verified=true;
+        await user.save();
+    
+        return res.status(200).json({
+            message:"Email verification is successful"
         })
     }
-
-    if(user.verified===true){
-        return res.status(400).json({message:"User is already verified!"})
+    catch(error){
+        return res.status(500).json ({error:error})
     }
-
-    user.verified=true;
-    await user.save();
-
-    return res.status(200).json({
-        message:"Email verification is successful"
-    })
 }
 
 export async function sendResetPasswordEmail(req:Request,res:Response) {
-    const email=req.body.email;
-    const user= await getUserByEmail(email);
-    if(!user){
-        return res.status(400).json({message:"Email is not registered"})
-    }
-    const userName=user.userName
-    const sentMail=await sendEmail(verifyEmailInfo.body,verifyEmailInfo.link,verifyEmailInfo.buttonInfo,userName,email,verifyEmailInfo.subject)
-
-    return res.status(200).json({message:"Reset Password Email sent successfully",sentMail:sentMail})
+    try{
+        const email=req.body.email;
+        const user= await getUserByEmail(email);
+        if(!user){
+            return res.status(400).json({message:"Email is not registered"})
+        }
+        const userName=user.userName
+        const sentMail=await sendEmail(resetPasswordEmailInfo.body,resetPasswordEmailInfo.link,resetPasswordEmailInfo.buttonInfo,userName,email,resetPasswordEmailInfo.subject)
     
+        return res.status(200).json({message:"Reset Password Email sent successfully",sentMail:sentMail})
+    } 
+    catch(error){
+        return res.status(500).json ({error:error})
+    }   
 }
 
 export async function resetPassword(req:Request,res:Response) {
-    const userId=(req.user as UserAttributes).id;
-    const user=await User.findByPk(userId)
-    const newPassword=req.body.newPassword;
-    const confirmPassword=req.body.confirmPassword;
+    try{
+        const email=req.params.email
+        const user=await User.findOne({where:{email:email}})
+    
+        if(!user){
+            return res.status(400).json({message:"User not found!"})
+        }
 
-    if(!user){
-        return res.status(400).json({message:"User not found!"})
+        const newPassword=req.body.newPassword;
+        const confirmPassword=req.body.confirmPassword;
+        
+        if(newPassword!==confirmPassword){
+            return res.status(400).json({message:"Please confirm your password Well!"})
+        }
+    
+        user.password=await hashPassword(newPassword)
+        await user.save();
+    
+        return res.status(200).json({message:"Password reset Successfully!"})
     }
-
-    if(newPassword!==confirmPassword){
-        return res.status(400).json({message:"Please confirm your password Well!"})
-    }
-
-    user.password=await hashPassword(newPassword)
-    await user.save();
-
-    return res.status(200).json({message:"Password reset Successfully!"})
+    catch(error){
+        return res.status(500).json ({error:error})
+    } 
 }
+export async function updatePassword(req:Request,res:Response){
+    try{
+        const user=req.user as User
+        const lastPassword=req.body.lastPassword;
+    
+        const isPasswordCorrect:boolean|null= await comparePassword(lastPassword,user.password)
+
+        if(!isPasswordCorrect){
+            return res.status(400).json({message:"Invalid password or userName! Try again "})
+        }
+    
+        const newPassword=req.body.updatedPassword
+    
+        user.password= await hashPassword(newPassword)
+        await user.save()
+        return res.status(200).json({message:"Password updated Successfully"})
+    }
+    catch(error){
+        return res.status(500).json ({error:error})
+    } 
+}//see if it works
+//send Verification email
+//loginby google
+//userlogout
+//Test verify email
+//test reset password
+//test sending email
+//test login by google

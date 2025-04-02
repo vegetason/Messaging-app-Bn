@@ -7,7 +7,6 @@ import passport from "passport";
 import cors from "cors";
 import createError from "http-errors";
 import router from "./routes/routes";
-import userRouter from "./routes/users";
 
 
 const swaggerUi = require('swagger-ui-express');
@@ -59,7 +58,7 @@ app.use(cookieParser());
 
 app.use(
   session({
-    secret: "cats",
+    secret:process.env.GOOGLE_SECRET as string,
     resave: false,
     saveUninitialized: true,
   })

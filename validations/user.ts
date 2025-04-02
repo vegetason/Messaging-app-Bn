@@ -89,7 +89,7 @@ export async function validateUserLogin(req:Request,res:Response,next:NextFuncti
             message:error.details
         })
     }
-    next;
+    next();
 }
 
 const verifyEmail=Joi.object({
@@ -111,6 +111,27 @@ export async function validateResetPassword(req:Request,res:Response,next:NextFu
     const {error}=resetPassword.validate(req.body,{abortEarly:false});
 
     if(error){
+       return res.status(400).json({
+            status:"fail",
+            message:error.details
+        })
+    }
+
+    next();
+}
+
+const updatedPassword=Joi.object({
+    newPassword:Joi.string().required().pattern(new RegExp('^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$'))
+    .messages({
+        "string.required":"Password is required",
+        "string.pattern.base":"Password must contain at least one lowercase letter, one uppercase letter, one digit, one special character, and be at least 8 characters long."
+    })
+})
+
+export async function validateUpdatePassword(req:Request,res:Response,next:NextFunction){
+    const {error}=updatedPassword.validate(req.body,{abortEarly:false});
+
+    if(error){
         return res.status(400).json({
             status:"fail",
             message:error.details
@@ -127,7 +148,7 @@ const sendResetPasswordEmail=Joi.object({
     })
 })
 
-export async function validatesendEmailVerification(req:Request,res:Response,next:NextFunction) {
+export async function validatesendResetPasswordEmail(req:Request,res:Response,next:NextFunction) {
     const {error}=sendResetPasswordEmail.validate(req.body,{abortEarly:false})
     if(error){
         return res.status(400).json({

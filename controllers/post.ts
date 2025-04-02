@@ -1,71 +1,89 @@
 import { Request,Response,NextFunction } from "express";
 import Post, { PostAttributes } from "../models/Post";
 import Comment, { CommentAttributes } from "../models/Comment";
-import User from "../models/User";
-const Like=require('../models/like');
-const cloudinary = require('../services/cloudinary');
-require('../services/cloudinary');
-async function myPosts(req:Request,res:Response) {
+import User, { UserAttributes } from "../models/User";
+import Like from "../models/Like";
+import cloudinary from "../services/cloudinary";
 
-    const {author}=req.params;
-    const posts=Post.findAll({where:{author:author}})
-    if (!posts){
-        return res.status(400).json({message:"You have no posts!"})
+export async function myPosts(req:Request,res:Response) {
+    try{
+        const userId=(req.user as UserAttributes).id;
+        const posts=await Post.findAndCountAll({where:{UserId:userId}})
+        if (!posts){
+            return res.status(400).json({message:"You have no posts!"})
+        }
+    
+        return res.status(200).json({message:"Here are your posts",myPosts:posts})
     }
 
-    return res.status(200).json({message:"Here are your posts"})
+    catch(error){
+        return res.status(400).json({error:error})
+    }
     
 }
 
-async function deleteMyPosts(req:Request,res:Response) {
+export async function deleteMyPosts(req:Request,res:Response) {
 
-    const postId=req.params.postId;
-   const  deletedPost=await Post.destroy({where:{id:postId}})
-    return res.status(204).json({message:"Post deleted successfully",deletedPost:deletedPost})
+    try{
+        const postId=req.params.postId;
+        const userId=(req.user as UserAttributes).id;
+        const post=await Post.findOne({where:{UserId:userId,id:postId}})
+        if(!post){
+            return res.status(400).json({message:"Post not Found"})
+        }
+        await Post.destroy({where:{id:postId}})
+        return res.status(200).json({message:"Post deleted successfully",deletedPost:post})
+    }
+
+    catch(error){
+        console.error(error)
+        return res.status(400).json({error:error})
+    }
 
 }
 
-async function createNewPost(req:Request,res:Response) {
+export async function createNewPost(req:Request,res:Response) {
     
-    const { title,description}=req.body;    
+    try{
+        
+        const { title,description}=req.body;  
 
-    const userId=req.params.userId;
+        const userId=(req.user as UserAttributes).id
 
-    const user= await User.findOne({where:{id:userId}})
+        const user= await User.findOne({where:{id:userId}})
 
-    const author= user?.userName
+        const author= user?.userName
 
-    if (!title || !description||!author){
-        return res.status(400).json({message:"Please complete all the reequired information"})
+        const files=req.files as  Express.Multer.File[];
+
+        const images=[] as string[];
+        if(files){
+            await Promise.all(
+                files.map(async (file:any) => {
+                const result = await cloudinary.uploader.upload(file.path);
+                images.push(result.secure_url)
+                })
+            );
+        }
+        
+        const createdPost= await Post.create({
+            title:title,
+            description:description,
+            image:images,
+            author:author,
+            UserId:userId
+
+        } as PostAttributes)
+
+        return res.status(200).json({message:"Post created successfully",Post:createdPost})
     }
 
-    const files=req.files as  Express.Multer.File[];
-
-    if(!files){
-        return res.status(400).json({message:"Please upload an image to continue"})
+    catch(error){
+        return res.status(400).json({error:error})
     }
-
-    const images=[] as string[];
-    await Promise.all(
-        files.map(async (file:any) => {
-          const result = await cloudinary.uploader.upload(file.path);
-          images.push(result.secure_url);
-        })
-      );
-
-    const createdPost= await Post.create({
-        title:title,
-        description:description,
-        image:images,
-        author:author,
-        UserId:userId
-
-    } as PostAttributes)
-
-    return res.status(200).json({message:"Post created successfully",Post:createdPost})
 }
 
-async function createComment(req:Request,res:Response) {
+export async function createComment(req:Request,res:Response) {
     const postId=req.params.postId
     const userId=req.params.userId
     const userWhoCommented=await User.findOne({where:{id:userId}})
@@ -81,7 +99,7 @@ async function createComment(req:Request,res:Response) {
     return res.status(200).json({message:"Comment created successfully",postToBeCommented});
 }
 
-async function getAllPostComments(req:Request,res:Response) {
+export async function getAllPostComments(req:Request,res:Response) {
     
     const postId=req.params.postId;
     const postComments=await Comment.findAll({where:{postId:postId}});
@@ -90,7 +108,7 @@ async function getAllPostComments(req:Request,res:Response) {
 
 }
 
-async function deleteComment(req:Request,res:Response) {
+export async function deleteComment(req:Request,res:Response) {
     const commentId=req.params.commentId;
     const userId=req.params.userId
     const comment=await Comment.findOne({where:{id:commentId}});
@@ -102,7 +120,7 @@ async function deleteComment(req:Request,res:Response) {
     }
 }
 
-async function updateCOmment(req:Request,res:Response) {
+export async function updateCOmment(req:Request,res:Response) {
     const commentId=req.params.commentId;
     const userId=req.params.userId
     const text=req.body
@@ -116,22 +134,25 @@ async function updateCOmment(req:Request,res:Response) {
     }
 }
 
-async function likeAPost(req:Request,res:Response) {
+export async function likeAPost(req:Request,res:Response) {
 
     const userId=req.params.userId;
     const postId=req.params.postId
     const postToBeLiked=Post.findAll({where:{id:postId}})
     const user=await User.findOne({where:{id:userId}})
+    if(!user){
+        return
+    }
     const likedPost=await Like.create({
         likes:"Liked a post",
         writer:user?.userName,
         postId:postId
-    })
+    } as any)
 
     return res.status(200).json({message:"You liked a post",postToBeLiked});
 }
 
-async function deleteLike(req:Request,res:Response) {
+export async function deleteLike(req:Request,res:Response) {
 
     const postId=req.params.postId;
     const userId=req.params.userId;
@@ -149,14 +170,14 @@ async function deleteLike(req:Request,res:Response) {
 }
 
 
-async function getAllPostLike(req:Request,res:Response) {
+export async function getAllPostLike(req:Request,res:Response) {
     const postId=req.params.postId;
     const postLikes= await Like.findAll({where:{postId:postId}})
 
     return res.status(200).json({message:"This are all the post likes",postLikes:postLikes})
 }
 
-async function getFreindsPost(req:Request,res:Response) {
+export async function getFreindsPost(req:Request,res:Response) {
 
     const userId=req.params.userId;
     const user=await User.findOne({where:{id:userId}})
@@ -168,24 +189,9 @@ async function getFreindsPost(req:Request,res:Response) {
     return res.status(200).json({message:"Here are the posts of your freinds",thePosts})
 }
 
-async function getAllPosts(req:Request,res:Response) {
+export async function getAllPosts(req:Request,res:Response) {
     const allPosts=await Post.findAll();
     return res.status(200).json({message:"All Posts",allPosts:allPosts})
 }
 
 //remember to look on migrations, messages and notification
-
-module.exports={
-    myPosts,
-    deleteMyPosts,
-    createNewPost,
-    getAllPosts,
-    getFreindsPost,
-    getAllPostLike,
-    deleteLike,
-    likeAPost,
-    updateCOmment,
-    deleteComment,
-    getAllPostComments,
-    createComment 
-}

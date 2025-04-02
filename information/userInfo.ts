@@ -82,6 +82,13 @@ export function generateEmailTemplate(subject:string,body:string,buttonInfo:stri
 export const verifyEmailInfo={
     body:`Thank you for signing up! Please verify your email address to activate your account.`,
     buttonInfo:`Verify Email`,
-    link: process.env.VERIFY_EMAIL_LINK as string,
+    link:"",
     subject:`Verify Your Email Address`
+}
+
+export const resetPasswordEmailInfo={
+    body:`We received a request to reset your password for your account. Click the link below to set a new password.`,
+    buttonInfo:`Reset Password`,
+    link:"",
+    subject:`Reset Password`
 }
