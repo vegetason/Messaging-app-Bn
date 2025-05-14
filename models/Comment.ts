@@ -40,7 +40,11 @@ export interface CommentAttributes {
       allowNull:false
     },
     postId:{
-      type:DataTypes.STRING,
+      type:DataTypes.UUID,
+      references:{
+        model:"Post",
+        key:"id"
+      },
       allowNull:false
     }
   }, {

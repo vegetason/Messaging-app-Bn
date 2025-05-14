@@ -21,13 +21,14 @@ module.exports = {
       author: {
         type: Sequelize.STRING
       },
-      UserId:{
-        type:Sequelize.STRING,
-        reference:{
-          model:"User",
-          key:"id"
+      UserId: {
+        type: Sequelize.UUID,  
+        references: { 
+          model: "Users",  
+          key: "id"
         },
-        onDelete:"CASCADE"
+        onDelete: "CASCADE",
+        onUpdate: "CASCADE"
       },
       createdAt: {
         allowNull: false,

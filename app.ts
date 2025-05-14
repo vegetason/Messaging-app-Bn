@@ -7,6 +7,8 @@ import passport from "passport";
 import cors from "cors";
 import createError from "http-errors";
 import router from "./routes/routes";
+import "./models/associates"
+import { deleteDeclinedExpiredRequests } from "./services/users";
 
 
 const swaggerUi = require('swagger-ui-express');
@@ -95,5 +97,7 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
     error: process.env.NODE_ENV === "development" ? err : {},
   });
 });
+
+deleteDeclinedExpiredRequests();
 
 export default app;

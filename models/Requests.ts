@@ -6,13 +6,15 @@ export interface RequestAttributes{
   id:string;
   status:string;
   receiverId:string;
-  senderId:string
+  senderId:string;
+  declineExpirationTime:Date
 }
 class Requests extends Model <RequestAttributes> {
   declare id:string;
   declare status:string;
   declare receiverId:string;
-  declare senderId:string
+  declare senderId:string;
+  declare declineExpirationTime:Date
   static associate() {
   }
 }
@@ -30,12 +32,15 @@ Requests.init({
     allowNull:false
   },
   senderId: {
-    type:DataTypes.STRING,
+    type:DataTypes.UUID,
     allowNull:false
   },
   receiverId:{
-    type: DataTypes.STRING,
+    type: DataTypes.UUID,
     allowNull:false
+  },
+  declineExpirationTime:{
+    type:DataTypes.DATE,
   }
 }, {
   sequelize,

@@ -1,6 +1,6 @@
 import passport from "passport";
 import { userSignUp, userLogin, deleteAccount, deleteSentRequest, getOneUser, getAllUsers, getRequests, refusedRequest, acceptRequest, SendRequest, updateProfile, getProfile, resetPassword, verifyEmail, sendResetPasswordEmail, updatePassword, googleAuthenticate, googleRedirect, LoginByGoogle, googleAuthFailed } from "../controllers/users";
-import { authenticate, getTokenFromBrowser } from "../middlewares";
+import { adminAuthenticate, authenticate, getTokenFromBrowser } from "../middlewares";
 import { validateResetPassword, validatesendResetPasswordEmail, validateUpdatePassword, validateUser, validateUserLogin } from "../validations/user";
 import '../services/loginByGoogle'
 import { uploadSingleFile } from "../services/multer";
@@ -22,23 +22,23 @@ userRouter.post('/login',validateUserLogin,userLogin);
 
 userRouter.delete('/deleteAccount',authenticate,deleteAccount);
 
-userRouter.delete('/deleteFreindRequest/:senderId/:receiverId',deleteSentRequest);
+userRouter.delete('/deleteFreindRequest/:requestId',authenticate,deleteSentRequest);
 
-userRouter.get('/getAUser/:userId',getOneUser);
+userRouter.get('/getAUser/:userId',adminAuthenticate,getOneUser);
 
-userRouter.get('/getAllUssers/',getAllUsers);
+userRouter.get('/getAllUssers/',adminAuthenticate,getAllUsers);
 
-userRouter.get('/getRequests/:userId',getRequests);
+userRouter.get('/getRequests',authenticate,getRequests);
 
-userRouter.patch('/denyRequest/:requestId',refusedRequest);
+userRouter.patch('/denyRequest/:requestId',authenticate,refusedRequest);
 
-userRouter.patch('/acceptRequest/:senderId/:receiverId/:requestId',acceptRequest);
+userRouter.patch('/acceptRequest/:requestId',authenticate,acceptRequest);
 
-userRouter.post('/sendRequest/:senderId/:receiverId',SendRequest);
+userRouter.post('/sendRequest/:receiverId',authenticate,SendRequest);
 
 userRouter.patch('/updateProfile',authenticate,uploadSingleFile,updateProfile);
 
-userRouter.get('/getProfile/:userId',getProfile);
+userRouter.get('/getProfile',authenticate,getProfile);
 
 userRouter.post('/resetPassword/:email',validateResetPassword,resetPassword);//do swagger
 
@@ -396,17 +396,11 @@ export default userRouter
  *               schema:
  *                 $ref: '#/components/schemas/Error'
  *
- *   /user/getProfile/{userId}:
+ *   /user/getProfile:
  *     get:
  *       summary: Get user profile
  *       tags: [Profile]
  *       parameters:
- *         - name: userId
- *           in: path
- *           required: true
- *           schema:
- *             type: string
- *           description: ID of the user
  *       responses:
  *         200:
  *           description: Profile retrieved successfully
@@ -462,17 +456,11 @@ export default userRouter
  *               schema:
  *                 $ref: '#/components/schemas/Error'
  *
- *   /user/sendRequest/{senderId}/{receiverId}:
+ *   /user/sendRequest/{receiverId}:
  *     post:
  *       summary: Send friend request
  *       tags: [Friend Requests]
  *       parameters:
- *         - name: senderId
- *           in: path
- *           required: true
- *           schema:
- *             type: string
- *           description: ID of the sender
  *         - name: receiverId
  *           in: path
  *           required: true
@@ -499,23 +487,11 @@ export default userRouter
  *               schema:
  *                 $ref: '#/components/schemas/Error'
  *
- *   /user/acceptRequest/{senderId}/{receiverId}/{requestId}:
+ *   /user/acceptRequest/{requestId}:
  *     patch:
  *       summary: Accept friend request
  *       tags: [Friend Requests]
  *       parameters:
- *         - name: senderId
- *           in: path
- *           required: true
- *           schema:
- *             type: string
- *           description: ID of the sender
- *         - name: receiverId
- *           in: path
- *           required: true
- *           schema:
- *             type: string
- *           description: ID of the receiver
  *         - name: requestId
  *           in: path
  *           required: true
@@ -577,25 +553,19 @@ export default userRouter
  *               schema:
  *                 $ref: '#/components/schemas/Error'
  *
- *   /user/deleteFreindRequest/{senderId}/{receiverId}:
+ *   /user/deleteFreindRequest/{requestId}:
  *     delete:
  *       summary: Delete friend request
  *       tags: [Friend Requests]
  *       parameters:
- *         - name: senderId
+ *         - name: requestId
  *           in: path
  *           required: true
  *           schema:
  *             type: string
- *           description: ID of the sender
- *         - name: receiverId
- *           in: path
- *           required: true
- *           schema:
- *             type: string
- *           description: ID of the receiver
+ *           description: ID of the request
  *       responses:
- *         204:
+ *         200:
  *           description: Request deleted successfully
  *           content:
  *             application/json:
@@ -607,6 +577,12 @@ export default userRouter
  *                     example: "Request deleted successfully"
  *                   deletedRequest:
  *                     type: object
+ *         400:
+ *           description: You are not allowed to delete this Request
+ *           content:
+ *             application/json: 
+ *               schema:
+ *                 $ref: '#/components/schemas/Error'
  *         500:
  *           description: Server error
  *           content:
@@ -614,17 +590,10 @@ export default userRouter
  *               schema:
  *                 $ref: '#/components/schemas/Error'
  *
- *   /user/getRequests/{userId}:
+ *   /user/getRequests:
  *     get:
  *       summary: Get user requests
  *       tags: [Friend Requests]
- *       parameters:
- *         - name: userId
- *           in: path
- *           required: true
- *           schema:
- *             type: string
- *           description: ID of the user
  *       responses:
  *         200:
  *           description: Requests retrieved successfully

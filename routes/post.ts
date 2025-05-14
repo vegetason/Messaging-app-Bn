@@ -16,23 +16,23 @@ postRouter.delete('/deletePost/:postId',authenticate,deleteMyPosts);
 
 postRouter.post('/create',authenticate,uploadManyFiles,validatePost,createNewPost);
 
-postRouter.delete('/deleteComment/:commentId/:userId',deleteComment);
+postRouter.delete('/deleteComment/:commentId',authenticate,deleteComment);
 
-postRouter.delete('/deleteLike/:postId/:userId',deleteLike);
+postRouter.delete('/deleteLike/:postId',authenticate,deleteLike);
 
-postRouter.post('/createComment/:postId/:userId',createComment);
+postRouter.post('/createComment/:postId',authenticate,createComment);
 
-postRouter.get('/postComments/:postId',getAllPostComments);
+postRouter.get('/postComments/:postId',authenticate,getAllPostComments);
 
-postRouter.get('/postLikes/:postId',getAllPostLike);
+postRouter.get('/postLikes/:postId',authenticate,getAllPostLike);
 
 postRouter.get('/freindPosts/:userId',getFreindsPost);
 
 postRouter.get('/allPosts',adminAuthenticate,getAllPosts);
 
-postRouter.post('/likePost/:userId/:postId',likeAPost);
+postRouter.post('/likePost/:postId',authenticate,likeAPost);
 
-postRouter.patch('/updateComment/:userId/:commentId',updateCOmment);
+postRouter.patch('/updateComment/:commentId',authenticate,updateCOmment);
 
 
 
@@ -271,7 +271,7 @@ export default postRouter;
  *           description: Post not found
  *
  *   # COMMENT CRUD OPERATIONS
- *   /post/createComment/{postId}/{userId}:
+ *   /post/createComment/{postId}:
  *     post:
  *       summary: Create a comment on a post
  *       tags: [Post]
@@ -282,12 +282,6 @@ export default postRouter;
  *             type: string
  *           required: true
  *           description: Post ID to comment on
- *         - in: path
- *           name: userId
- *           schema:
- *             type: string
- *           required: true
- *           description: User ID of the commenter
  *       requestBody:
  *         required: true
  *         content:
@@ -332,17 +326,11 @@ export default postRouter;
  *         404:
  *           description: Post not found
  *
- *   /post/updateComment/{userId}/{commentId}:
+ *   /post/updateComment/{commentId}:
  *     patch:
  *       summary: Update a comment
  *       tags: [Post]
  *       parameters:
- *         - in: path
- *           name: userId
- *           schema:
- *             type: string
- *           required: true
- *           description: User ID of the commenter
  *         - in: path
  *           name: commentId
  *           schema:
@@ -361,7 +349,7 @@ export default postRouter;
  *               required:
  *                 - comment
  *       responses:
- *         204:
+ *         200:
  *           description: Comment updated successfully
  *           content:
  *             application/json:
@@ -378,7 +366,7 @@ export default postRouter;
  *         404:
  *           description: Comment not found
  *
- *   /post/deleteComment/{commentId}/{userId}:
+ *   /post/deleteComment/{commentId}:
  *     delete:
  *       summary: Delete a comment
  *       tags: [Post]
@@ -389,14 +377,8 @@ export default postRouter;
  *             type: string
  *           required: true
  *           description: Comment ID to delete
- *         - in: path
- *           name: userId
- *           schema:
- *             type: string
- *           required: true
- *           description: User ID of the commenter
  *       responses:
- *         204:
+ *         200:
  *           description: Comment deleted successfully
  *           content:
  *             application/json:
@@ -412,17 +394,11 @@ export default postRouter;
  *           description: Comment not found
  *
  *   # LIKE OPERATIONS
- *   /post/likePost/{userId}/{postId}:
+ *   /post/likePost/{postId}:
  *     post:
  *       summary: Like a post
  *       tags: [Post]
  *       parameters:
- *         - in: path
- *           name: userId
- *           schema:
- *             type: string
- *           required: true
- *           description: User ID who is liking the post
  *         - in: path
  *           name: postId
  *           schema:
@@ -467,7 +443,7 @@ export default postRouter;
  *         404:
  *           description: Post not found
  *
- *   /post/deleteLike/{postId}/{userId}:
+ *   /post/deleteLike/{postId}:
  *     delete:
  *       summary: Delete a like from a post
  *       tags: [Post]
@@ -478,12 +454,6 @@ export default postRouter;
  *             type: string
  *           required: true
  *           description: Post ID
- *         - in: path
- *           name: userId
- *           schema:
- *             type: string
- *           required: true
- *           description: User ID who liked the post
  *       responses:
  *         204:
  *           description: Like deleted successfully

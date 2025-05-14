@@ -2,6 +2,8 @@
 import { sequelize } from "../database";
 import { DataTypes, Model, Sequelize } from "sequelize";
 import User from "./User";
+import Comment from "./Comment";
+import Like from "./Like";
 
 export interface PostAttributes {
   id:string;
@@ -20,6 +22,8 @@ class Post extends Model <PostAttributes> {
   declare UserId:string;
   static associate() {
     Post.belongsTo(User, { foreignKey: 'UserId' })
+    Post.hasMany(Comment, { foreignKey: 'postId', as: 'comments' });
+    Post.hasMany(Like,{foreignKey:'postId',as:'Likes'})
   }
 
   
@@ -51,8 +55,12 @@ Post.init({
     }
   },
   UserId:{
-    type:DataTypes.STRING,
+    type:DataTypes.UUID,
     allowNull:false,
+    references:{
+      model:"User",
+      key:"id"
+    },
     validate:{
       notEmpty:true
     }

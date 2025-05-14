@@ -2,7 +2,7 @@ import User, { UserAttributes, userCreationAttribute } from "../models/User";
 import { NextFunction, Request,Response } from "express";
 import Profile from "../models/Profile";
 import cloudinary from "../services/cloudinary";
-import Requests from "../models/Requests";
+import Requests, { RequestAttributes } from "../models/Requests";
 import { comparePassword, generateJwtToken,getUserByEmail,hashPassword, sendEmail} from "../services/users";
 import { resetPasswordEmailInfo, verifyEmailInfo } from "../information/userInfo";
 import { getUser } from "../middlewares";
@@ -99,8 +99,9 @@ export async function deleteAccount(req:Request,res:Response) {
 }
 
 export async function getProfile(req:Request,res:Response) {
-    const userId=req.params.userId
-    const myProfile=Profile.findAll({where:{userId:userId}})
+    const userId=(req.user as UserAttributes).id;
+
+    const myProfile=await Profile.findOne({where:{userId:userId}})
     
     return res.status(200).json({message:"my Profile",profile:myProfile})
 }
@@ -140,35 +141,48 @@ await profile.save()
 }
 
 export async function SendRequest(req:Request,res:Response) {
-    const requestSender=req.params.senderId;
+    const requestSender=(req.user as UserAttributes).id;
     const requestReceiver=req.params.receiverId;
+
+    const existingRequest=await Requests.findOne({where:{
+        senderId:requestSender,
+        receiverId:requestReceiver
+    }});
+
+    if(existingRequest && existingRequest.status !=='declined'){
+        return res.status(400).json({message:"Request already sent"});
+    }
 
     const sentRequest=await Requests.create({
         status: 'pending',
         senderId: requestSender,
         receiverId: requestReceiver
-    } as any)
+    } as RequestAttributes)
 
     return res.status(200).json({message:'Request was sent',sentRequest:sentRequest})
 }
 
 export async function acceptRequest(req:Request,res:Response) {
-    const requestSender=req.params.senderId;
-    const requestReceiver=req.params.receiverId;
+    const requestReceiver=(req.user as UserAttributes).id;
     const requestId=req.params.requestId;
 
-    const request=await Requests.findOne({where:{id:requestId}});
+    const request=await Requests.findByPk(requestId);
+    const requestSender=request?.senderId;
 
     const acceptedRequest=await request?.update({status:'accepted'});
 
     const sender=await User.findOne({where:{id:requestSender}});
     const receiver=await User.findOne({where:{id:requestReceiver}});
-    const freindOfSender=sender?.freinds as any;
-    const freindOfReceiver=receiver?.freinds as any; 
+    const freindOfSender=sender?.freinds ?? [] ;
+    const freindOfReceiver=receiver?.freinds ?? []; 
+
+    freindOfReceiver.push(sender?.id);
+    freindOfSender.push(receiver?.id);
 
 
-    await sender?.update({freinds:freindOfSender.push(receiver)});
-    await receiver?.update({freinds:freindOfReceiver.push(sender)})
+    await sender?.update({freinds:freindOfSender});
+    await receiver?.update({freinds:freindOfReceiver})
+
 
     await sender?.save();
     await receiver?.save(); 
@@ -180,14 +194,14 @@ export async function refusedRequest(req:Request,res:Response) {
     const requestId=req.params.requestId;
     const request=await Requests.findOne({where:{id:requestId}});
 
-    const failedRequest=await request?.update({status:'failed'});
+    const failedRequest=await request?.update({status:'declined',declineExpirationTime:new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)})// the declined request will be deleted in 3 days;
 
     return res.status(200).json({message:"Failed request",failedRequest:failedRequest})
 
 }
 
 export async function getRequests(req:Request,res:Response) {
-    const userId=req.params.userId
+    const userId=(req.user as UserAttributes).id;
     const sentRequests=await Requests.findOne({where:{senderId:userId}})
     const receivedRequest=await Requests.findOne({where:{receiverId:userId}});
 
@@ -204,14 +218,29 @@ export async function getOneUser(req:Request,res:Response) {
     return res.status(200).json({message:"User retreived",user:user})
 }
 export async function deleteSentRequest(req:Request,res:Response) {
-    const userId=req.params.userId;
-    const  receiverId=req.params. receiverId
+    try{
+    const  senderId=(req.user as UserAttributes).id;
+    const requestId=req.params.requestId;
+    const request=await Requests.findByPk(requestId);
+
+    if(!request){
+        return res.status(400).json({message:"Request not found!"})
+    }
+
+    if(senderId!==request?.senderId && request?.status!=='pending'){
+        return res.status(400).json({message:"You are not allowed to delete this Request!"})
+    }
     const deletedRequest=await Requests.destroy({where:{
-        senderId:userId,
-        receiverId: receiverId,
+        senderId:senderId,
+        id:requestId,
     }});
 
-    return res.status(204).json({message:"Request deleted successfully",deletedRequest:deletedRequest})
+    return res.status(200).json({message:"Request deleted successfully",deletedRequest:deletedRequest})
+    }
+    catch(error){
+        console.error(error);
+        return res.status(500).json({message:"Internal servor error"})
+    }
 }
 
 

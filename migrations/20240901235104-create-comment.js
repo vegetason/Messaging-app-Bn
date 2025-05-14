@@ -15,14 +15,15 @@ module.exports = {
       writer: {
         type: Sequelize.STRING
       },
-      postId:{
-        type:Sequelize.STRING,
-        reference:{
-          model:"Post",
-          key:"id"
+      postId: {
+        type: Sequelize.UUID,  
+        references: { 
+          model: "Posts",  
+          key: "id"
         },
-        onDelete:"CASCADE"
-      },
+        onDelete: "CASCADE",
+        onUpdate: "CASCADE"
+      }, 
       createdAt: {
         allowNull: false,
         type: Sequelize.DATE

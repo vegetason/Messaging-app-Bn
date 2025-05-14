@@ -34,7 +34,7 @@ export interface likeAttributes{
       allowNull:false
     },
     postId: {
-      type:DataTypes.STRING,
+      type:DataTypes.UUID,
       allowNull:false
     }
   }, {

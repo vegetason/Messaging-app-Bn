@@ -12,11 +12,14 @@ module.exports = {
       status: {
         type: Sequelize.STRING
       },
-      fromId: {
-        type: Sequelize.STRING
+      senderId: {
+        type: Sequelize.UUID
       },
-      toId: {
-        type: Sequelize.STRING
+      receiverId: {
+        type: Sequelize.UUID
+      },
+      declineExpirationTime:{
+        type:Sequelize.DATE
       },
       createdAt: {
         allowNull: false,

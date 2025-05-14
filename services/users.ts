@@ -5,6 +5,9 @@ import bcrypt from "bcrypt"
 import { NextFunction, Request } from 'express';
 import nodemailer from "nodemailer"
 import { generateEmailTemplate } from '../information/userInfo';
+import { Op } from 'sequelize';
+import nodeCron from 'node-cron';
+import Requests from '../models/Requests';
 
 dotenv.config();
 
@@ -74,4 +77,28 @@ export async function getUserById(id:string) {
 
 export async function getUserByEmail(email:string) {
     return await User.findOne({where:{email:email}})
+}
+
+export async function deleteDeclinedExpiredRequests() {
+    nodeCron.schedule('0 * * * *', async () => {
+    const now = new Date();
+
+    try {
+      const expiredDeclines = await Requests.findAll({
+        where: {
+          status: 'declined',
+          declineExpirationTime: {
+            [Op.lt]: now,
+          },
+        },
+      });
+
+      for (const request of expiredDeclines) {
+        console.log(`Deleting expired request ID: ${request.id}`);
+        await request.destroy();
+      }
+    } catch (err) {
+      console.error('Error in cleanup cron job:', err);
+    }
+  });
 }
